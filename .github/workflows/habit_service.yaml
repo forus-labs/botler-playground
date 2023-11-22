@@ -5,18 +5,7 @@ env:
   ESSENTIAL_MAVEN_PASSWORD: ${{secrets.ESSENTIAL_MAVEN_PASSWORD}}
 
 on:
-  push:
-    branches:
-      - master
-
-    paths:
-      - '**'
-      - '.github/workflows/habit_service.yaml'
-      - 'habit/service/**'
-      - 'habit/grpc/proto/**'
-      - 'grpc/java/**'
-      - 'grpc/proto/**'
-
+  push: {}
   workflow_dispatch:
     inputs:
       target:
