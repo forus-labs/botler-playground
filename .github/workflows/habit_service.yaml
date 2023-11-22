@@ -1,4 +1,4 @@
-name: Habit Service Build & Deployment
+name: Pull Request Only
 
 env:
   ESSENTIAL_MAVEN_USERNAME: ${{secrets.ESSENTIAL_MAVEN_USERNAME}}
@@ -9,21 +9,8 @@ on:
     branches:
       - master
 
-    tags:
-      - 'habit/service/**'
-
     paths:
-      - '.github/workflows/habit_service.yaml'
-      - 'habit/service/**'
-      - 'habit/postgres/**'
-      - 'grpc/java/**'
-      - 'grpc/proto/**'
-
-  pull_request:
-    branches:
-      - master
-
-    paths:
+      - '**'
       - '.github/workflows/habit_service.yaml'
       - 'habit/service/**'
       - 'habit/grpc/proto/**'
