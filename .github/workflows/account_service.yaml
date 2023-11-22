@@ -1,0 +1,146 @@
+name: Account Service Build & Deployment
+
+env:
+  ESSENTIAL_MAVEN_USERNAME: ${{secrets.ESSENTIAL_MAVEN_USERNAME}}
+  ESSENTIAL_MAVEN_PASSWORD: ${{secrets.ESSENTIAL_MAVEN_PASSWORD}}
+
+on:
+  push:
+    branches:
+      - master
+
+    tags:
+      - 'account/service/**'
+
+    paths:
+      - '.github/workflows/account_service.yaml'
+      - 'account/service/**'
+      - 'account/postgres/**'
+      - 'account/grpc/java/**'
+      - 'account/grpc/proto/**'
+      - 'grpc/java/**'
+      - 'grpc/proto/**'
+
+  pull_request:
+    branches:
+      - master
+
+    paths:
+      - '.github/workflows/account_service.yaml'
+      - 'account/service/**'
+      - 'account/postgres/**'
+      - 'account/grpc/java/**'
+      - 'account/grpc/proto/**'
+      - 'grpc/java/**'
+      - 'grpc/proto/**'
+
+  workflow_dispatch:
+    inputs:
+      target:
+        type: choice
+        description: 'The services(s) to be deployed'
+        required: true
+        options:
+          - none
+          - development
+          - production
+          - all
+
+jobs:
+  lint:
+    name: Buf
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    container:
+      image: bufbuild/buf:latest
+    steps:
+      - uses: styfle/cancel-workflow-action@0.12.0
+        with:
+          access_token: ${{ github.token }}
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+      - working-directory: grpc/proto
+        run: buf lint
+
+  build-deploy:
+    name: Hermetically build & deploy service
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: ./account/service
+    needs: [lint]
+    steps:
+      - uses: styfle/cancel-workflow-action@0.12.0
+        with:
+          access_token: ${{ github.token }}
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+      - uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: 17
+      - working-directory: account/service
+        run: ./gradlew build shadowJar
+
+      - if: (github.event_name == 'push' && github.ref == 'refs/heads/master') || startsWith(github.ref, 'refs/tags/account/postgres') || inputs.target != 'none'
+        run: docker build -t forus-labs/essential-account-service .
+
+        # This whole section is a mess. Why? It's 2023 and GitHub Actions still refuses to allow scripts to exit early.
+
+      - if: (github.event_name == 'push' && github.ref == 'refs/heads/master') || inputs.target == 'development' || inputs.target == 'all'
+        uses: 'google-github-actions/auth@v1'
+        with:
+          credentials_json: ${{ secrets.GCP_ESSENTIAL_DEVELOPMENT_CREDENTIALS }}
+
+      - if: (github.event_name == 'push' && github.ref == 'refs/heads/master') || inputs.target == 'development' || inputs.target == 'all'
+        uses: 'google-github-actions/setup-gcloud@v1'
+
+      - if: (github.event_name == 'push' && github.ref == 'refs/heads/master') || inputs.target == 'development' || inputs.target == 'all'
+        run: gcloud auth configure-docker us-west1-docker.pkg.dev
+
+      - if: (github.event_name == 'push' && github.ref == 'refs/heads/master') || inputs.target == 'development' || inputs.target == 'all'
+        run: >
+          docker tag 
+          forus-labs/essential-account-service 
+          us-west1-docker.pkg.dev/${{ secrets.GCP_ESSENTIAL_DEVELOPMENT_PROJECT_ID }}/essential-account-service/essential-account-service:latest
+
+      - if: (github.event_name == 'push' && github.ref == 'refs/heads/master') || inputs.target == 'development' || inputs.target == 'all'
+        name: Upload Docker image to development environment
+        run: docker push us-west1-docker.pkg.dev/${{ secrets.GCP_ESSENTIAL_DEVELOPMENT_PROJECT_ID }}/essential-account-service/essential-account-service:latest
+
+      - if: (github.event_name == 'push' && github.ref == 'refs/heads/master') || inputs.target == 'development' || inputs.target == 'all'
+        name: Deploy to development environment
+        run: >
+          gcloud run deploy essential-account-service
+          --image us-west1-docker.pkg.dev/${{ secrets.GCP_ESSENTIAL_DEVELOPMENT_PROJECT_ID }}/essential-account-service/essential-account-service:latest
+          --service-account ${{ secrets.GCP_ESSENTIAL_DEVELOPMENT_SERVICE_ACCOUNT_EMAIL }}
+          --region us-west1
+
+
+      - if: startsWith(github.ref, 'refs/tags/account/postgres') || inputs.target == 'production' || inputs.target == 'all'
+        uses: 'google-github-actions/auth@v1'
+        with:
+          credentials_json: ${{ secrets.GCP_ESSENTIAL_PRODUCTION_CREDENTIALS }}
+
+      - if: startsWith(github.ref, 'refs/tags/account/postgres') || inputs.target == 'production' || inputs.target == 'all'
+        uses: 'google-github-actions/setup-gcloud@v1'
+
+      - if: startsWith(github.ref, 'refs/tags/account/postgres') || inputs.target == 'production' || inputs.target == 'all'
+        run: gcloud auth configure-docker us-docker.pkg.dev
+
+      - if: startsWith(github.ref, 'refs/tags/account/postgres') || inputs.target == 'production' || inputs.target == 'all'
+        run: >
+          docker tag 
+          forus-labs/essential-account-service 
+          us-docker.pkg.dev/${{ secrets.GCP_ESSENTIAL_PRODUCTION_PROJECT_ID }}/account-service/essential-account-service:latest
+
+      - if: startsWith(github.ref, 'refs/tags/account/postgres') || inputs.target == 'production' || inputs.target == 'all'
+        name: Upload Docker image to production environment
+        run: docker push us-docker.pkg.dev/${{ secrets.GCP_ESSENTIAL_PRODUCTION_PROJECT_ID }}/account-service/essential-account-service:latest
+
+      - if: startsWith(github.ref, 'refs/tags/account/postgres') || inputs.target == 'production' || inputs.target == 'all'
+        name: Deploy to production environment
+        run: >
+          gcloud run deploy account-service
+          --image us-docker.pkg.dev/${{ secrets.GCP_ESSENTIAL_PRODUCTION_PROJECT_ID }}/account-service/essential-account-service:latest
+          --service-account ${{ secrets.GCP_ESSENTIAL_PRODUCTION_SERVICE_ACCOUNT_EMAIL }}
+          --region us-west1

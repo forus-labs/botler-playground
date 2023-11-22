@@ -1,0 +1,47 @@
+name: Bridgette Test
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/bridgette_test.yaml'
+      - 'bridgette/bridgette/**'
+  pull_request:
+    branches: [master]
+    paths:
+      - '.github/workflows/bridgette_test.yaml'
+      - 'bridgette/bridgette/**'
+
+jobs:
+  test:
+    name: Automated tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: bridgette/bridgette
+    steps:
+      - name: Configure auto cancellation
+        uses: styfle/cancel-workflow-action@0.12.0
+        with:
+          access_token: ${{ github.token }}
+
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+
+      - name: Install flutter environment
+        uses: subosito/flutter-action@v2.12.0
+        with:
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run code generation
+        run: flutter pub run build_runner build --delete-conflicting-outputs
+
+      - name: Analyze code
+        run: flutter analyze
+
+      - name: Run tests
+        run: flutter test

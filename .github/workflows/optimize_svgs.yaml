@@ -1,0 +1,27 @@
+name: Optimize SVGs
+
+on:
+  push:
+    branches-ignore:
+      - master
+    paths:
+    - '.github/workflows/optimize_svgs.yaml'
+    - '**.svg'
+  workflow_dispatch: {}
+
+jobs:
+  optimize-svgs:
+    name:  Optimize SVGs
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+    - uses: styfle/cancel-workflow-action@0.12.0
+      with:
+        access_token: ${{ github.token }}
+    - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+    - run: npm -g install svgo
+    - run: svgo -r -f .
+    - uses: EndBug/add-and-commit@v9
+      with:
+        pull: '--rebase --autostash' # This reduces (but not eliminates) the odds of concurrent committing actions causing issues
+        add: '*'

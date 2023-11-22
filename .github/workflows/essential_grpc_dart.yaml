@@ -1,0 +1,57 @@
+name: Essential gRPC Dart Stub Generation
+on:
+  push:
+    branches-ignore:
+      - master
+    paths:
+      - '.github/workflows/essential_grpc_dart.yaml'
+      - 'grpc/dart/**'
+      - 'grpc/proto/**'
+
+  workflow_dispatch: {}
+
+jobs:
+  lint:
+    name: Buf
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    container:
+      image: bufbuild/buf:latest
+    defaults:
+      run:
+        working-directory: grpc/proto
+    steps:
+      - uses: styfle/cancel-workflow-action@0.12.0
+        with:
+          access_token: ${{ github.token }}
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+      - run: buf lint
+
+  generate:
+    name: Generate Dart stubs
+    runs-on: ubuntu-latest
+    needs: [lint]
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: grpc/proto
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+      - uses: dart-lang/setup-dart@v1.4
+      - run: sudo apt-get update -y
+      - run: sudo apt-get install -y protobuf-compiler
+      - run: dart pub global activate protoc_plugin
+      - run: export PATH="$PATH":"$PUB_CACHE/bin"
+      - run: rm -rf ../dart/lib
+      - run: mkdir -p ../dart/lib/src
+      - run: protoc ./app/essential/**/grpc/v1/*.proto --dart_out=grpc:../dart/lib/src # protoc is a bitch, can't specify glob patterns on Ubuntu
+      - run: dart ../dart/tool/exporter.dart
+      - uses: tj-actions/changed-files@v40
+        id: changed-files
+
+      - uses: EndBug/add-and-commit@v9
+        with:
+          add: '*'
+          push: false
+      - run: dart pub global activate --source path ../../bridgette/bridgette_runner
+      - run: dart pub global run bridgette_runner:push_generated_files

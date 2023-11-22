@@ -1,0 +1,71 @@
+name: Journal App Build
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - '.github/workflows/journal_app.yaml'
+      - 'account/grpc/dart/**'
+      - 'bridgette/bridgette/**'
+      - 'bridgette/bridgette_runner/**'
+      - 'essential/**'
+      - 'journal/app/**'
+      - 'grpc/dart/**'
+
+  pull_request:
+    branches:
+      - master
+    paths:
+      - '.github/workflows/journal_app.yaml'
+      - 'account/grpc/dart/**'
+      - 'bridgette/bridgette/**'
+      - 'bridgette/bridgette_runner/**'
+      - 'essential/**'
+      - 'journal/app/**'
+      - 'grpc/dart/**'
+  workflow_dispatch: {}
+
+jobs:
+  build-android:
+    name: Build Android
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: journal/app
+    steps:
+      - name: Configure auto cancellation
+        uses: styfle/cancel-workflow-action@0.12.0
+        with:
+          access_token: ${{ github.token }}
+          
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+
+      - name: Install java environment
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: 17
+
+      - name: Install flutter environment
+        uses: subosito/flutter-action@v2.12.0
+        with:
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run code generation
+        run: flutter pub run build_runner build
+
+      - name: Analyze code
+        run: flutter analyze
+
+      - name: Run tests
+        run: flutter test
+
+      - name: Build app bundle
+        run: flutter build appbundle --debug --no-pub --no-tree-shake-icons --flavor development --dart-define=DEVELOPMENT

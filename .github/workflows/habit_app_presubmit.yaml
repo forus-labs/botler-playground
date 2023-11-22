@@ -1,0 +1,57 @@
+name: Habit App Presubmit
+
+on:
+  pull_request:
+    branches: [ master ]
+    paths:
+      - '.github/workflows/habit_app_presubmit.yaml'
+      - 'habit/app/**'
+      - 'habit/tool/migrations/**.sql'
+  workflow_dispatch: {}
+
+jobs:
+  prepare:
+    name: Prepare PR for review
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: habit/app
+    steps:
+      - name: Configure auto cancellation
+        uses: styfle/cancel-workflow-action@0.12.0
+        with:
+          access_token: ${{ github.token }}
+
+      - name: Generate token
+        uses: tibdex/github-app-token@v2
+        id: generate-token
+        with:
+          app_id: ${{ secrets.TOKEN_MINT_APP_ID }}
+          private_key: ${{ secrets.TOKEN_MINT_PRIVATE_KEY }}
+
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+        with:
+          token: ${{ steps.generate-token.outputs.token }}
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Install flutter environment
+        uses: subosito/flutter-action@v2.12.0
+        with:
+          cache: true
+
+      - uses: dart-lang/setup-dart@v1.4
+
+      - run: flutter pub get
+      - run: flutter pub global activate import_sorter
+      - run: flutter pub global run import_sorter:main
+      - run: flutter pub run build_runner build --delete-conflicting-outputs
+      - run: dart fix --apply
+      - run: flutter pub run bridgette_runner:generate_sql_migrations ./tool/migrations ./lib/sql.g.dart
+
+      - uses: EndBug/add-and-commit@v9
+        with:
+          add: '*'
+          push: false
+      - run: flutter pub run bridgette_runner:push_generated_files

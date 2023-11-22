@@ -1,0 +1,40 @@
+name: Remote Config Production Deployment
+
+on:
+  push:
+    tags:
+      - 'habit/app/**'
+      - 'journal/app/**'
+      - 'focus/app/**'
+
+  workflow_dispatch: {}
+
+env:
+  FIREBASE_DEVELOPMENT_SERVICE_ACCOUNT: ${{secrets.FIREBASE_DEVELOPMENT_SERVICE_ACCOUNT}}
+  FIREBASE_PRODUCTION_SERVICE_ACCOUNT: ${{secrets.FIREBASE_PRODUCTION_SERVICE_ACCOUNT}}
+
+jobs:
+  deploy:
+    name: Deploy remote config to production
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: bridgette/bridgette_runner
+    steps:
+      - name: Configure auto cancellation
+        uses: styfle/cancel-workflow-action@0.12.0
+        with:
+          access_token: ${{ github.token }}
+
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+
+      - name: Install Dart environment
+        uses: dart-lang/setup-dart@v1.4
+
+      - name: Install dependencies
+        run: dart pub get
+
+      - name: Run deployment script
+        run: dart ./bin/deploy_production_dynamic_configuration.dart

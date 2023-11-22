@@ -1,0 +1,53 @@
+name: Remote Config Code Generation
+
+on:
+  workflow_dispatch: {}
+
+env:
+  FIREBASE_DEVELOPMENT_SERVICE_ACCOUNT: ${{secrets.FIREBASE_DEVELOPMENT_SERVICE_ACCOUNT}}
+
+jobs:
+  generate:
+    name: Generate Dart bindings
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: essential
+    steps:
+      - name: Configure auto cancellation
+        uses: styfle/cancel-workflow-action@0.12.0
+        with:
+          access_token: ${{ github.token }}
+
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+
+      - name: Install flutter environment
+        uses: subosito/flutter-action@v2.12.0
+        with:
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Generate bindings
+        run: flutter pub run bridgette_runner:generate_dynamic_configuration_bindings ./lib/src/dynamic_configuration.g.dart
+
+      - uses: tibdex/github-app-token@v2
+        id: generate-token
+        with:
+          app_id: ${{ secrets.TOKEN_MINT_APP_ID }}
+          private_key: ${{ secrets.TOKEN_MINT_PRIVATE_KEY }}
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ steps.generate-token.outputs.token }}
+          commit-message: '[Automation] Update remote config bindings'
+          branch: automation/update-remote-config-bindings
+          delete-branch: true
+          title: '[Automation] Update remote config bindings'
+          body: "This PR was automatically generated because the development environment's remote config was updated via Firebase's UI."
+          labels: dependencies
+          draft: false

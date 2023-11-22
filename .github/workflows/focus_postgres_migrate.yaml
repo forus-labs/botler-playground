@@ -1,0 +1,57 @@
+name: Focus Postgres Migrate Database(s)
+
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - 'focus/postgres/**'
+    paths:
+      - '.github/workflows/focus_postgres_migrate.yaml'
+      - 'focus/postgres/**'
+
+  pull_request:
+    branches:
+      - master
+    paths:
+      - '.github/workflows/focus_postgres_migrate.yaml'
+      - 'focus/postgres/**'
+
+  workflow_dispatch:
+    inputs:
+      target:
+        type: choice
+        description: 'The database(s) to be migrated'
+        required: true
+        options:
+          - development
+          - production
+          - all
+
+jobs:
+  migrate:
+    name: Migrate databases
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout/@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+      - run: wget -qO- https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/9.4.0/flyway-commandline-9.4.0-linux-x64.tar.gz
+          | tar xvz && sudo ln -s `pwd`/flyway-9.4.0/flyway /usr/local/bin
+
+      - if: github.event_name == 'push' || inputs.target == 'development' || inputs.target == 'all'
+        name: Migrate development database
+        run: flyway -url="jdbc:postgresql://${{ secrets.ESSENTIAL_DEVELOPMENT_DATABASE_URL }}/focus"
+          -user="${{ secrets.ESSENTIAL_DEVELOPMENT_DATABASE_USER }}"
+          -password="${{ secrets.ESSENTIAL_DEVELOPMENT_DATABASE_PASSWORD }}"
+          -locations="filesystem:./focus/postgres"
+          -mixed=true
+          migrate
+
+      - if: startsWith(github.ref, 'refs/tags/focus/postgres') || inputs.target == 'production' || inputs.target == 'all'
+        name: Migrate production database
+        run: flyway -url="jdbc:postgresql://${{ secrets.ESSENTIAL_PRODUCTION_DATABASE_URL }}/focus"
+          -user="${{ secrets.ESSENTIAL_PRODUCTION_DATABASE_USER }}"
+          -password="${{ secrets.ESSENTIAL_PRODUCTION_DATABASE_PASSWORD }}"
+          -locations="filesystem:./focus/postgres"
+          -mixed=true
+          migrate
