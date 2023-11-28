@@ -1,0 +1,6 @@
+branches:
+  "aa/**":
+    pull_request:
+      checks:
+        require: ["b/**"]
+        ignore: ["c/**"]
