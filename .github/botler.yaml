@@ -1,6 +1,10 @@
 branches:
-  "aa/**":
-    pull_request:
+  "master":
+    pull-request:
       checks:
-        require: ["b/**"]
-        ignore: ["c/**"]
+        require: [".*"]
+
+  "feature/**":
+    pull-request:
+      checks:
+        ignore: [".*"]
