@@ -4,6 +4,6 @@ branches:
       checks:
         require: [".*"]
 
-    "feature/**":
-      pull-request:
-        ignore: [".*"]
+  "feature/**":
+    pull-request:
+      ignore: [".*"]
