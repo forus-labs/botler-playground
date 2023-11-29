@@ -6,4 +6,5 @@ branches:
 
   "feature/**":
     pull-request:
-      ignore: [".*"]
+      checks:
+        ignore: [".*"]
