@@ -2,9 +2,9 @@ branches:
   "master":
     pull-request:
       checks:
-        require: ".*"
+        require: [".*"]
 
   "feature/**":
     pull-request:
       checks:
-        ignore: ".*"
+        ignore: [".*"]
