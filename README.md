@@ -1,4 +1,6 @@
 # botler-playground
 
-For testing botler 4gegeg
+test repository for testing botler.
+
+4gegeg
 weg wg
