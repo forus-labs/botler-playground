@@ -1,10 +1,12 @@
 branches:
   "master":
     pull-request:
+      auto-merge: squash
       checks:
         require: [".*"]
 
   "feature/**":
     pull-request:
+      auto-merge: merge
       checks:
         ignore: [".*"]
